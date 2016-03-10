@@ -131,44 +131,48 @@ EvRoulette.prototype.make_sound = function (sound) {
 
 EvRoulette.prototype.start = function () {
 	var
-		self          = this,
-		animation     = 'spin ' + EvRoulette.SPIN_SECONDS + 's ease-in-out forwards',
-		el_style      = document.createElement('style'),
-		keyframe,
-		keyframes,
-		el_width      = EvWeapon.EL_WIDTH,
-		el_width_1_2  = Math.floor(EvWeapon.EL_WIDTH / 2),
-		el_width_1_20 = Math.floor(EvWeapon.EL_WIDTH / 20),
+		self      = this,
+		animation = 'spin ' + EvRoulette.SPIN_SECONDS + 's ease-in-out forwards',
+		el_style  = document.createElement('style'),
 
-		rand          = function (min, max) {
+		keyframes,
+		keyframes_with_vendor_prefixes,
+
+		el_weapon_width_1_2  = Math.floor(EvWeapon.EL_WIDTH / 2),
+		el_weapon_width_1_20 = Math.floor(EvWeapon.EL_WIDTH / 20),
+
+		rand = function (min, max) {
 			return Math.floor(Math.random() * (max - min + 1)) + min;
 		},
 
-		rand_stop     = (EvRoulette.N_WEAPONS - 5) * el_width + el_width_1_2 +
-		                rand(el_width_1_20, (19 * el_width_1_20));
+		// рандомная координата остановки
+		rand_stop = (EvRoulette.N_WEAPONS - 5) * EvWeapon.EL_WIDTH +
+		            el_weapon_width_1_2 +
+		            rand(el_weapon_width_1_20, (19 * el_weapon_width_1_20));
 
-	el_style.type = 'text/css';
-
-	console.log('rand stop: ' + rand_stop);
-
-	keyframe = 'spin {' +
+	// генерация кейфреймов: для нормальных браузеров + для сафари
+	keyframes = 'spin {' +
 		' 0%   {left: 0;}' +
 		' 100% {left: -' + rand_stop + 'px;}' +
 	'}';
-
-	keyframes = document.createTextNode(
-		'@keyframes '         + keyframe +
-		'@-webkit-keyframes ' + keyframe
+	keyframes_with_vendor_prefixes = document.createTextNode(
+		'@keyframes '         + keyframes +
+		'@-webkit-keyframes ' + keyframes
 	);
 
-	el_style.appendChild(keyframes);
+	// хак для генерации цсс-кейфреймов через жс
+	el_style.type = 'text/css';
+	el_style.appendChild(keyframes_with_vendor_prefixes);
 	self.el.appendChild(el_style);
 
+	// рулетка понеслась
 	self.make_sound(EvRoulette.SOUND_START);
 
-	this.el_weapons.style.animation            = animation;
-	this.el_weapons.style['-webkit-animation'] = animation;
+	// активировать анимацию
+	self.el_weapons.style.animation            = animation;
+	self.el_weapons.style['-webkit-animation'] = animation;
 
+	// рулетка остановится через SPIN_SECONDS
 	setTimeout(function () {
 		self.make_sound(EvRoulette.SOUND_STOP);
 		self.weapons.forEach(function (weapon) {
