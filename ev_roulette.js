@@ -11,9 +11,6 @@ function EvRoulette() {
 	// родительский DOM-элемент для DOM-элементов оружия
 	// (он вращается)
 	this.el_weapons = null;
-
-	// координата для translate3d
-	this.x = 0;
 }
 
 // ПАРАМЕТРЫ РУЛЕТКИ
@@ -34,67 +31,19 @@ function EvRoulette() {
 //
 // L-3 -- на этом месте оружие-приз
 
-// первые N оружий, которые быстро вращаются
-EvRoulette.N_WEAPONS_SPIN_FAST = 10;
-
-// следующие N оружий, которые медленно вращаются
-EvRoulette.N_WEAPONS_SPIN_SLOW = 5;
-
-// заключительные N оружий, которые очень медленно вращаются
-// (и среди них оружие-приз)
-EvRoulette.N_WEAPONS_SPIN_SUPERSLOW = 5;
-// ВНИМАНИЕ: не меняй число 5
-// (смотри схему, нужны все элементы на позициях с L-5 по L-1)
-
 // общее количество оружия
-EvRoulette.N_WEAPONS = EvRoulette.N_WEAPONS_SPIN_FAST +
-                       EvRoulette.N_WEAPONS_SPIN_SLOW +
-                       EvRoulette.N_WEAPONS_SPIN_SUPERSLOW;
+EvRoulette.N_WEAPONS = 20;
 
-// айди приза
+// айдишник приза
 EvRoulette.WEAPON_PRIZE_ID = EvRoulette.N_WEAPONS - 3;
 
-// шаг вращения на разных скоростях
-EvRoulette.SPIN_STEP_FAST      = 100; // 1/2 EvWeapon.EL_WIDTH
-EvRoulette.SPIN_STEP_SLOW      = 50;  // 1/4 EvWeapon.EL_WIDTH
-EvRoulette.SPIN_STEP_SUPERSLOW = 25;  // 1/8 EvWeapon.EL_WIDTH
-
-// количество быстрых вращений с шагом 1/2 ширины элемента
-EvRoulette.N_SPINS_FAST = EvRoulette.N_WEAPONS_SPIN_FAST * 2;
-
-// количество медленных вращений с шагом 1/4 ширины элемента
-EvRoulette.N_SPINS_SLOW = EvRoulette.N_WEAPONS_SPIN_SLOW * 4;
-
-// количество полных очень медленных вращений
-// вопрос: почему 4, а не 8?
-//  ответ: для преодоления дистанции одного оружия требуется 8 очень медленных
-//         вращений; но мне нужна только половина (после этого мишень будет
-//         ровно на середине элемента L-5
-EvRoulette.N_SPINS_SUPERSLOW = 4;
-
-// чтобы призовое оружие оказалось под мишенью, задействованы ещё несколько
-// рандомных очень медленных вращений
-// вопрос: что ещё за рандом?
-//  ответ: рандом создаст эффект случайной финишной позиции; оружие-приз
-//         сможет оказаться не чётко посередине, а чуть правее или левее 
-EvRoulette.N_SPINS_SUPERSLOW_RAND_MIN = 1;
-EvRoulette.N_SPINS_SUPERSLOW_RAND_MAX = 7;
-
-// интервалы вращения в миллисекундах
-EvRoulette.INTERVAL = 125;
-
-// небольшая пауза перед полной остановкой (тоже в миллисекундах)
-EvRoulette.TIMEOUT_STOP = 250;
+// время вращения (в секундах)
+EvRoulette.SPIN_SECONDS = 5;
 
 // звуки
 EvRoulette.SOUND_START = 'snd/roulette_start.wav';
 EvRoulette.SOUND_SPIN  = 'snd/roulette_spin.wav';
 EvRoulette.SOUND_STOP  = 'snd/roulette_stop.wav';
-
-// частота звуков вращения на разных скоростях
-EvRoulette.SOUND_FREQUENCY_FAST      = 2;
-EvRoulette.SOUND_FREQUENCY_SLOW      = 4;
-EvRoulette.SOUND_FREQUENCY_SUPERSLOW = 8;
 
 // СОЗДАТЬ ОРУЖИЕ ИЗ АТРИБУТОВ
 // -----------------------------------------------------------------------------
@@ -177,92 +126,49 @@ EvRoulette.prototype.make_sound = function (sound) {
 	audio.play();
 };
 
-// СЛУЧАЙНОЕ ЧИСЛО ОЧЕНЬ МЕДЛЕННЫХ ВРАЩЕНИЙ
-// -----------------------------------------------------------------------------
-
-EvRoulette.prototype.rand_n_spins_superslow = function () {
-	var 
-		min  = EvRoulette.N_SPINS_SUPERSLOW_RAND_MIN,
-		max  = EvRoulette.N_SPINS_SUPERSLOW_RAND_MAX,
-		rand = Math.floor(Math.random() * (max - min + 1)) + min;
-	return EvRoulette.N_SPINS_SUPERSLOW + rand;
-};
-
-// ВРАЩЕНИЕ РУЛЕТКИ
-// -----------------------------------------------------------------------------
-
-EvRoulette.prototype.spin = function (spin_step) {
-	this.x -= spin_step;
-	var translate3d = 'translate3d(' + this.x + 'px, 0, 0)';
-
-	this.el_weapons.style.transform            = translate3d;
-	this.el_weapons.style['-webkit-transform'] = translate3d;
-};
-
 // ЗАПУСК РУЛЕТКИ
 // -----------------------------------------------------------------------------
 
 EvRoulette.prototype.start = function () {
 	var
-		self                   = this,
-		n_spins_fast           = 0,
-		n_spins_slow           = 0,
-		n_spins_superslow      = 0,
-		n_spins_superslow_rand = this.rand_n_spins_superslow(),
-		interval,
+		self          = this,
+		animation     = 'spin ' + EvRoulette.SPIN_SECONDS + 's ease-in-out forwards',
+		el_style      = document.createElement('style'),
+		keyframe,
+		keyframes,
+		el_width      = EvWeapon.EL_WIDTH,
+		el_width_1_2  = Math.floor(EvWeapon.EL_WIDTH / 2),
+		el_width_1_20 = Math.floor(EvWeapon.EL_WIDTH / 20),
 
-		// звук вращения
-		// для разных скоростей разная частота повторов
-		make_sound_spin = function (n_spins_speed, frequency) {
-			if (n_spins_speed % frequency === 0) {
-				self.make_sound(EvRoulette.SOUND_SPIN);
-			}
+		rand          = function (min, max) {
+			return Math.floor(Math.random() * (max - min + 1)) + min;
 		},
 
-		// первая часть: быстрые вращения
-		spin_fast = function () {
-			n_spins_fast += 1;
-			make_sound_spin(n_spins_fast, EvRoulette.SOUND_FREQUENCY_FAST);
-			self.spin(EvRoulette.SPIN_STEP_FAST);
-			if (n_spins_fast === EvRoulette.N_SPINS_FAST) {
-				clearInterval(interval);
-				interval = setInterval(spin_slow, EvRoulette.INTERVAL);
-			}
-		},
+		rand_stop     = (EvRoulette.N_WEAPONS - 5) * el_width + el_width_1_2 +
+		                rand(el_width_1_20, (19 * el_width_1_20));
 
-		// вторая часть: медленные вращения
-		spin_slow = function () {
-			n_spins_slow += 1;
-			make_sound_spin(n_spins_slow, EvRoulette.SOUND_FREQUENCY_SLOW);
-			self.spin(EvRoulette.SPIN_STEP_SLOW);
-			if (n_spins_slow === EvRoulette.N_SPINS_SLOW) {
-				clearInterval(interval);
-				interval = setInterval(spin_superslow, EvRoulette.INTERVAL);
-			}
-		},
+	el_style.type = 'text/css';
 
-		// третья часть: очень медленные вращения и финиш
-		spin_superslow = function () {
-			n_spins_superslow += 1;
-			make_sound_spin(n_spins_superslow,
-			                EvRoulette.SOUND_FREQUENCY_SUPERSLOW);
-			self.spin(EvRoulette.SPIN_STEP_SUPERSLOW);
-			if (n_spins_superslow === n_spins_superslow_rand) {
-				clearInterval(interval);
-				self.stop();
-			}
-		};
+	console.log('rand stop: ' + rand_stop);
 
-	// бибикнуть и начать с быстрых вращений
+	keyframe = 'spin {' +
+		' 0%   {left: 0;}' +
+		' 100% {left: -' + rand_stop + 'px;}' +
+	'}';
+
+	keyframes = document.createTextNode(
+		'@keyframes '         + keyframe +
+		'@-webkit-keyframes ' + keyframe
+	);
+
+	el_style.appendChild(keyframes);
+	self.el.appendChild(el_style);
+
 	self.make_sound(EvRoulette.SOUND_START);
-	interval = setInterval(spin_fast, EvRoulette.INTERVAL);
-};
 
-// ОСТАНОВКА РУЛЕТКИ
-// -----------------------------------------------------------------------------
+	this.el_weapons.style.animation            = animation;
+	this.el_weapons.style['-webkit-animation'] = animation;
 
-EvRoulette.prototype.stop = function () {
-	var self = this;
 	setTimeout(function () {
 		self.make_sound(EvRoulette.SOUND_STOP);
 		self.weapons.forEach(function (weapon) {
@@ -270,5 +176,5 @@ EvRoulette.prototype.stop = function () {
 				weapon.el.style.opacity = 0.5;
 			}
 		});
-	}, EvRoulette.TIMEOUT_STOP);
+	}, EvRoulette.SPIN_SECONDS * 1000);
 };

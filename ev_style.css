@@ -22,8 +22,7 @@
 #ev-weapons {
 	height: 160px;
 	white-space: nowrap;
-	transition: transform 125ms linear, opacity 125ms ease-in;
-	-webkit-transition: -webkit-transform 125ms linear, opacity 125ms ease-in;
+	position: relative;
 }
 
 .ev-weapon {
