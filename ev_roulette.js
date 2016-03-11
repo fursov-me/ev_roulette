@@ -19,7 +19,7 @@ function EvRoulette() {
 // N_WEAPONS -- это общее количество оружия в рулетке
 // (приз + возможно повторяющиеся актёры)
 //
-// всего оружия должно быть не мешьше 8 штук
+// всего оружия должно быть не меньше 8 штук
 // вот как оно выглядит
 //
 // +---+---+---+     +---+---+---+---+---+
@@ -37,8 +37,14 @@ EvRoulette.N_WEAPONS = 20;
 // айдишник приза
 EvRoulette.WEAPON_PRIZE_ID = EvRoulette.N_WEAPONS - 3;
 
-// время вращения (в секундах)
-EvRoulette.SPIN_SECONDS = 5;
+// время вращения
+EvRoulette.SPIN_SECS = 10;
+
+// время отложенного старта
+EvRoulette.START_DELAY_MSECS = 1000;
+
+// интервал синхронизации звуков вращения
+EvRoulette.SOUND_SPIN_INTERVAL = 100;
 
 // звуки
 EvRoulette.SOUND_START = 'snd/roulette_start.wav';
@@ -131,12 +137,7 @@ EvRoulette.prototype.make_sound = function (sound) {
 
 EvRoulette.prototype.start = function () {
 	var
-		self      = this,
-		animation = 'spin ' + EvRoulette.SPIN_SECONDS + 's ease-in-out forwards',
-		el_style  = document.createElement('style'),
-
-		keyframes,
-		keyframes_with_vendor_prefixes,
+		self = this,
 
 		el_weapon_width_1_2  = Math.floor(EvWeapon.EL_WIDTH / 2),
 		el_weapon_width_1_20 = Math.floor(EvWeapon.EL_WIDTH / 20),
@@ -148,37 +149,52 @@ EvRoulette.prototype.start = function () {
 		// рандомная координата остановки
 		rand_stop = (EvRoulette.N_WEAPONS - 5) * EvWeapon.EL_WIDTH +
 		            el_weapon_width_1_2 +
-		            rand(el_weapon_width_1_20, (19 * el_weapon_width_1_20));
+		            rand(el_weapon_width_1_20, (19 * el_weapon_width_1_20)),
+		
+		// эти ребята используются для синхронизации звука
+		// (когда мишень совпадает с началом очередного оружия, должно тикать)
+		sound_spin_interval,
+		// считает количество пройденных оружий во время вращения
+		spin_counter = 0;
 
-	// генерация кейфреймов: для нормальных браузеров + для сафари
-	keyframes = 'spin {' +
-		' 0%   {left: 0;}' +
-		' 100% {left: -' + rand_stop + 'px;}' +
-	'}';
-	keyframes_with_vendor_prefixes = document.createTextNode(
-		'@keyframes '         + keyframes +
-		'@-webkit-keyframes ' + keyframes
-	);
+	// анимация теперь через 'transition', а не через 'animation'
+	// 'ease-out' -- это плавное замедление рулетки
+	self.el_weapons.style.transition =
+		'left ' + EvRoulette.SPIN_SECS + 's ease-out';
 
-	// хак для генерации цсс-кейфреймов через жс
-	el_style.type = 'text/css';
-	el_style.appendChild(keyframes_with_vendor_prefixes);
-	self.el.appendChild(el_style);
-
-	// рулетка понеслась
-	self.make_sound(EvRoulette.SOUND_START);
-
-	// активировать анимацию
-	self.el_weapons.style.animation            = animation;
-	self.el_weapons.style['-webkit-animation'] = animation;
-
-	// рулетка остановится через SPIN_SECONDS
+	// немного отложенный старт
+	// (ибо нельзя сразу установить цсс-свойство 'left')
 	setTimeout(function () {
+		self.make_sound(EvRoulette.SOUND_START);
+		self.el_weapons.style.left = '-' + rand_stop + 'px';
+
+		// здесь попытка синхронизировать звук вращения с анимацией
+		sound_spin_interval = setInterval(function () {
+			var
+				current_left = Math.abs(
+					parseInt(window.getComputedStyle(self.el_weapons).left, 10)
+				),
+				current_spin_counter = Math.floor(
+					(current_left + el_weapon_width_1_2) / EvWeapon.EL_WIDTH
+				);
+			// рулетка довращалась до нового оружия
+			if (current_spin_counter > spin_counter) {
+				spin_counter = current_spin_counter;
+				self.make_sound(EvRoulette.SOUND_SPIN);
+			}
+		}, EvRoulette.SOUND_SPIN_INTERVAL);
+	
+	}, EvRoulette.START_DELAY_MSECS);
+
+	// анимация остановилась
+	// значит, рулетка тоже 
+	self.el_weapons.addEventListener('transitionend', function () {
+		clearInterval(sound_spin_interval);
 		self.make_sound(EvRoulette.SOUND_STOP);
 		self.weapons.forEach(function (weapon) {
 			if (weapon.id !== EvRoulette.WEAPON_PRIZE_ID) {
 				weapon.el.style.opacity = 0.5;
 			}
 		});
-	}, EvRoulette.SPIN_SECONDS * 1000);
+	});
 };
