@@ -1,9 +1,36 @@
+// КЛАСС ОРУЖИЯ
+// -----------------------------------------------------------------------------
+
+function EvWeapon(id, attrs) {
+	// идентификатор соответствует порядковому индексу в массиве weapons
+	// класса EvRoulette
+	this.id          = id; 
+
+	// атрибуты с сервера
+	this.weapon_name = attrs.weapon_name;
+	this.skin_name   = attrs.skin_name;
+	this.rarity      = attrs.rarity;
+	this.steam_image = attrs.steam_image;
+
+	// DOM-элемент создаётся в рендере рулетки
+	this.el          = null; 
+}
+
+EvWeapon.EL_WIDTH = 200;
+
 // КЛАСС РУЛЕТКИ
 // -----------------------------------------------------------------------------
 
-function EvRoulette() {
+function EvRoulette(attrs) {
+	// атрибуты для генерации массива this.weapons
+	this.weapon_prize_attrs  = attrs.weapon_prize_attrs;
+	this.weapon_actors_attrs = attrs.weapon_actors_attrs;
+
 	// тут будет всё оружие (оружие-приз + оружие-актёры)
 	this.weapons = [];
+
+	// родительский DOM-элемент для рулетки
+	this.el_parent = attrs.el_parent;
 
 	// DOM-элемент самой рулетки
 	this.el = null;
@@ -32,7 +59,7 @@ function EvRoulette() {
 // L-3 -- на этом месте оружие-приз
 
 // общее количество оружия
-EvRoulette.N_WEAPONS = 20;
+EvRoulette.N_WEAPONS = 25;
 
 // айдишник приза
 EvRoulette.WEAPON_PRIZE_ID = EvRoulette.N_WEAPONS - 3;
@@ -46,6 +73,13 @@ EvRoulette.START_DELAY_MSECS = 1000;
 // интервал синхронизации звуков вращения
 EvRoulette.SOUND_SPIN_INTERVAL = 100;
 
+// интервал ожидания картинок
+EvRoulette.IMAGE_LOAD_INTERVAL = 500;
+
+// максимальное время ожидания картинок
+// после этого придётся сдаться и показать битые картинки
+EvRoulette.IMAGE_LOAD_WAIT_MSECS = 10 * 1000;
+
 // звуки
 EvRoulette.SOUND_START = 'snd/roulette_start.wav';
 EvRoulette.SOUND_SPIN  = 'snd/roulette_spin.wav';
@@ -58,18 +92,18 @@ EvRoulette.SOUND_STOP  = 'snd/roulette_stop.wav';
 //  ответ: - создаётся массив из N_WEAPONS-1 актёров
 //         - позицию WEAPON_PRIZE_ID занимает приз
 
-EvRoulette.prototype.set_weapons = function (weapon_prize_attrs,
-                                             weapon_actors_attrs) {
+EvRoulette.prototype.set_weapons = function () {
 	var
+		self              = this,
 		weapons           = [],
-		weapon_actors_len = weapon_actors_attrs.length,
+		weapon_actors_len = self.weapon_actors_attrs.length,
 		j                 = 0,
 		set_weapon_actors = function (from_i, to_i) {
 			var i;
 			for (i = from_i; i <= to_i; i += 1) {
 				weapons[i] = new EvWeapon(
 					i,
-					weapon_actors_attrs[j]
+					self.weapon_actors_attrs[j]
 				);
 				j = (j === weapon_actors_len - 1) ? 0 : j + 1;
 			}
@@ -83,44 +117,98 @@ EvRoulette.prototype.set_weapons = function (weapon_prize_attrs,
 
 	weapons[EvRoulette.WEAPON_PRIZE_ID] = new EvWeapon(
 		EvRoulette.WEAPON_PRIZE_ID,
-		weapon_prize_attrs
+		self.weapon_prize_attrs
 	);
 
 	set_weapon_actors(EvRoulette.WEAPON_PRIZE_ID + 1, EvRoulette.N_WEAPONS - 1);
 
-	this.weapons = weapons;
+	self.weapons = weapons;
 };
 
-// ОТРИСОВАТЬ НАЧАЛЬНОЕ ПОЛОЖЕНИЕ РУЛЕТКИ И ОРУЖИЯ
+// РЕНДЕР
 // -----------------------------------------------------------------------------
 
-EvRoulette.prototype.render = function (el_parent) {
+EvRoulette.prototype.render = function () {
 	var
-		el_roulette = document.createElement('div'),
-		el_target   = document.createElement('div'),
-		el_weapons  = document.createElement('div');
+		self = this,
+
+		el_roulette      = document.createElement('div'),
+		el_target        = document.createElement('div'),
+		el_weapons       = document.createElement('div'),
+
+		// подсчёт загруженных картинок
+		n_images_loaded  = 0,
+		image_load_wait  = 0,
+		image_load_interval;
 
 	el_roulette.id = 'ev-roulette';
 	el_target.id   = 'ev-target';
 	el_weapons.id  = 'ev-weapons';
 
 	el_weapons.style.width = (EvRoulette.N_WEAPONS * EvWeapon.EL_WIDTH) + 'px';
+	
+	self.weapons.forEach(function (weapon) {
+		var
+			el_weapon                = document.createElement('div'),
+			el_weapon_inner          = document.createElement('div'),
+			el_weapon_rarity         = document.createElement('div'),
+			el_weapon_img            = document.createElement('img'),
+			el_weapon_text           = document.createElement('div'),
+			el_weapon_text_name      = document.createElement('p'),
+			el_weapon_text_skin_name = document.createElement('p');
 
-	// рендер оружия
-	this.weapons.forEach(function (weapon) {
-		weapon.render();
+		// важно: onload колбэк перед src
+		el_weapon_img.onload = function () {
+			n_images_loaded += 1;
+		};
+
+		el_weapon_img.src                    = weapon.steam_image;
+		el_weapon_img.alt                    = weapon.weapon_name;
+		el_weapon_text_name.textContent      = weapon.weapon_name;
+		el_weapon_text_skin_name.textContent = weapon.skin_name;
+	
+		el_weapon.className        = 'ev-weapon';
+		el_weapon_inner.className  = 'ev-weapon-inner';
+		el_weapon_rarity.className = 'ev-weapon-rarity ' +
+			'ev-weapon-rarity-' + weapon.rarity;
+		el_weapon_text.className   = 'ev-weapon-text';
+	
+		el_weapon_text.appendChild(el_weapon_text_name);
+		el_weapon_text.appendChild(el_weapon_text_skin_name);
+		el_weapon_inner.appendChild(el_weapon_rarity);
+		el_weapon_inner.appendChild(el_weapon_img);
+		el_weapon_inner.appendChild(el_weapon_text);
+		el_weapon.appendChild(el_weapon_inner);
+	
+		weapon.el = el_weapon;	
+		
 		el_weapons.appendChild(weapon.el);
 	});
 
 	el_roulette.appendChild(el_target);
 	el_roulette.appendChild(el_weapons);
 
-	// осталось примонтировать
-	el_parent.appendChild(el_roulette);
+	// ждёмс загрузки всех картинок
+	// по окончании начинаем вращаться
+	image_load_interval = setInterval(function () {
+		image_load_wait += EvRoulette.IMAGE_LOAD_INTERVAL;
 
-	// рулетка готова
-	this.el_weapons = el_weapons;
-	this.el         = el_roulette;
+		// полная боевая готовность или не могу больше ждать
+		if (
+			(n_images_loaded === EvRoulette.N_WEAPONS) ||
+			(image_load_wait >= EvRoulette.IMAGE_LOAD_WAIT_MSECS)
+		) {
+			clearInterval(image_load_interval);
+
+			self.el_weapons = el_weapons;
+			self.el         = el_roulette;
+
+			self.el_parent.appendChild(self.el);
+			
+			self.spin();
+		}
+	}, EvRoulette.IMAGE_LOAD_INTERVAL);
+	
 };
 
 // УЧУ РУЛЕТКУ ИЗДАВАТЬ ЗВУКИ
@@ -132,10 +220,10 @@ EvRoulette.prototype.make_sound = function (sound) {
 	audio.play();
 };
 
-// ЗАПУСК РУЛЕТКИ
+// ВРАЩЕНИЕ РУЛЕТКИ
 // -----------------------------------------------------------------------------
 
-EvRoulette.prototype.start = function () {
+EvRoulette.prototype.spin = function () {
 	var
 		self = this,
 
@@ -149,7 +237,7 @@ EvRoulette.prototype.start = function () {
 		// рандомная координата остановки
 		rand_stop = (EvRoulette.N_WEAPONS - 5) * EvWeapon.EL_WIDTH +
 		            el_weapon_width_1_2 +
-		            rand(el_weapon_width_1_20, (19 * el_weapon_width_1_20)),
+		            rand(el_weapon_width_1_20, (18 * el_weapon_width_1_20)),
 		
 		// эти ребята используются для синхронизации звука
 		// (когда мишень совпадает с началом очередного оружия, должно тикать)
@@ -197,4 +285,15 @@ EvRoulette.prototype.start = function () {
 			}
 		});
 	});
+};
+
+// ЗАПУСК
+// -----------------------------------------------------------------------------
+
+EvRoulette.prototype.start = function () {
+	// перед рендером нужно создать оружие из атрибутов
+	this.set_weapons();
+
+	// рендер, который вызовет this.spin() после успешной загрузки картинок
+	this.render();
 };
