@@ -38,6 +38,9 @@ function EvRoulette(attrs) {
 	// родительский DOM-элемент для DOM-элементов оружия
 	// (он вращается)
 	this.el_weapons = null;
+
+	// колбэк по окончании вращения
+	this.afterparty = attrs.afterparty;
 }
 
 // ПАРАМЕТРЫ РУЛЕТКИ
@@ -284,6 +287,10 @@ EvRoulette.prototype.spin = function () {
 				weapon.el.style.opacity = 0.5;
 			}
 		});
+
+		// всё, рулетка остановилась
+		// дальше можешь делать что-нибудь своё
+		self.afterparty();
 	});
 };
 

@@ -66,7 +66,10 @@ function main() {
 		roulette = new EvRoulette({
 			weapon_prize_attrs:  WEAPON_PRIZE_ATTRS,
 			weapon_actors_attrs: WEAPON_ACTORS_ATTRS,
-			el_parent:           el_parent
+			el_parent:           el_parent,
+			afterparty:          function () {
+				alert('Ой всё');
+			}
 		});
 
 	// понеслась
