@@ -68,7 +68,7 @@ function main() {
 			weapon_actors_attrs: WEAPON_ACTORS_ATTRS,
 			el_parent:           el_parent,
 			afterparty:          function () {
-				alert('Ой всё');
+				alert('Ой, всё');
 			}
 		});
 
