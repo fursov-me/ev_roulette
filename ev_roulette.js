@@ -71,7 +71,7 @@ EvRoulette.WEAPON_PRIZE_ID = EvRoulette.N_WEAPONS - 3;
 EvRoulette.SPIN_SECS = 10;
 
 // время отложенного старта
-EvRoulette.START_DELAY_MSECS = 1000;
+EvRoulette.START_DELAY_MSECS = 100;
 
 // интервал синхронизации звуков вращения
 EvRoulette.SOUND_SPIN_INTERVAL = 100;
