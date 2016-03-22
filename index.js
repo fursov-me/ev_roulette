@@ -67,8 +67,11 @@ function main() {
 			weapon_prize_attrs:  WEAPON_PRIZE_ATTRS,
 			weapon_actors_attrs: WEAPON_ACTORS_ATTRS,
 			el_parent:           el_parent,
+			beforeparty:         function () {
+				console.log('Поехали!');
+			},
 			afterparty:          function () {
-				alert('Ой, всё');
+				console.log('Ой, всё');
 			}
 		});
 

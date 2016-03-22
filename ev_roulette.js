@@ -39,6 +39,9 @@ function EvRoulette(attrs) {
 	// (он вращается)
 	this.el_weapons = null;
 
+	// колбэк на старте вращения
+	this.beforeparty = attrs.beforeparty;
+
 	// колбэк по окончании вращения
 	this.afterparty = attrs.afterparty;
 }
@@ -256,6 +259,9 @@ EvRoulette.prototype.spin = function () {
 	// немного отложенный старт
 	// (ибо нельзя сразу установить цсс-свойство 'left')
 	setTimeout(function () {
+		// перед стартом может быть необходимость что-то сотворить
+		self.beforeparty();
+
 		self.make_sound(EvRoulette.SOUND_START);
 		self.el_weapons.style.left = '-' + rand_stop + 'px';
 
